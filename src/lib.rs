@@ -21,18 +21,6 @@ use regex::Regex;
 // "a b(...type name...)": "name: type"
 // "type name(args)": "fn name(args) -> type"
 
-// pub void testfunc(i32 arg) {
-//     const i32 test = 5; // const var
-//     i32 test2 = 78; // var
-//     println!("I am a test function with int {} edi {} and arg {}", test, test2, arg);
-// }
-
-// pub fn testfunc() -> () {
-//     let test: i32 = 5;
-//     let test2: i32 = 78;
-//     println!("I am a test function with int {} edi {}", test, test2);
-// }
-
 fn compile(contentsoffile: &str) -> String {
     let mut contents = contentsoffile.to_string();
 
