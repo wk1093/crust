@@ -16,17 +16,15 @@ use std::env;
 use regex::Regex;
 
 // LANGUAGE
-// "var type name = val": "let mut name: type = val"
-// "var type name": "let mut name: type;"
-// "cvar type name = val": "let name: type = val"
-// "cvar type name": "let name: type;"
-// "fvar type name": "name: type"
-// "dfun type name(args)": "fn name(args) -> type"
+// "type name = val": "let mut name: type = val"
+// "const type name = val": "let name: type = val"
+// "a b(...type name...)": "name: type"
+// "type name(args)": "fn name(args) -> type"
 
-// pub dfun void testfunc() {
-//     cvar i32 test = 5;
-//     var i32 test2 = 78;
-//     println!("I am a test function with int {} edi {}", test, test2);
+// pub void testfunc(i32 arg) {
+//     const i32 test = 5; // const var
+//     i32 test2 = 78; // var
+//     println!("I am a test function with int {} edi {} and arg {}", test, test2, arg);
 // }
 
 // pub fn testfunc() -> () {
@@ -36,44 +34,36 @@ use regex::Regex;
 // }
 
 fn compile(contentsoffile: &str) -> String {
-    // "cvar type name = val": "let name: type = val"
     let mut contents = contentsoffile.to_string();
 
-    let cvarv_re: Regex = Regex::new(r"cvar(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*=(?: |\t)*(.*)(?: |\t)*;").unwrap();
-    for cap in cvarv_re.captures_iter(&contents.clone()) {
+    // "const type name = val": "let name: type = val"
+    let cvar_re: Regex = Regex::new(r"const(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*=(?: |\t)*(.*)(?: |\t)*;").unwrap(); // cvar(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*=(?: |\t)*(.*)(?: |\t)*;
+    for cap in cvar_re.captures_iter(&contents.clone()) {
         println!("    CVAR: type '{}', name '{}', val '{}'", &cap[1], &cap[2], &cap[3]);
         contents = contents.replace(&cap[0], &format!("let {}: {} = {};", &cap[2], &cap[1], &cap[3]));
     }
-    // "cvar type name": "let name: type;"
-    let cvar_re: Regex = Regex::new(r"cvar(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*;").unwrap();
-    for cap in cvar_re.captures_iter(&contents.clone()) {
-        println!("    CVAR: type '{}', name '{}'", &cap[1], &cap[2]);
-        contents = contents.replace(&cap[0], &format!("let {}: {};", &cap[2], &cap[1]));
+
+    // "a b(...type name...)": "name: type"   ftype                            fname                       \( ...         type                         name              ... \)
+    loop {
+        let fvar_re: Regex = Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)+([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*\((.*)([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)([a-zA-Z_][a-zA-Z0-9_]*)(.*)\)").unwrap();
+        for cap in fvar_re.captures_iter(&contents.clone()) {
+            println!("    FVAR: type '{}', name '{}'", &cap[4], &cap[5]);
+            contents = contents.replace(&cap[0], &format!("{} {}({}{}: {}{})", &cap[1], &cap[2], &cap[3], &cap[5], &cap[4], &cap[6]));
+        }
+        if !fvar_re.is_match(&contents.clone()) {
+            break;
+        }
     }
 
-    // "fvar type name": "name: type"
-    let fvar_re: Regex = Regex::new(r"fvar(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*").unwrap();
-    for cap in fvar_re.captures_iter(&contents.clone()) {
-        println!("    FVAR: type '{}', name '{}'", &cap[1], &cap[2]);
-        contents = contents.replace(&cap[0], &format!("{}: {}", &cap[2], &cap[1]));
-    }
-
-    // "var type name = val": "let mut name: type = val"
-    let varv_re: Regex = Regex::new(r"var(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*=(?: |\t)*(.*)(?: |\t)*;").unwrap();
-    for cap in varv_re.captures_iter(&contents.clone()) {
+    // "type name = val": "let mut name: type = val"
+    let var_re: Regex = Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*=(?: |\t)*(.*)(?: |\t)*;").unwrap(); //var(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*=(?: |\t)*(.*)(?: |\t)*;
+    for cap in var_re.captures_iter(&contents.clone()) {
         println!("    VAR: type '{}', name '{}', val '{}'", &cap[1], &cap[2], &cap[3]);
         contents = contents.replace(&cap[0], &format!("let mut {}: {} = {};", &cap[2], &cap[1], &cap[3]));
     }
 
-    // "var type name": "let mut name: type;"
-    let var_re: Regex = Regex::new(r"var(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*;").unwrap();
-    for cap in var_re.captures_iter(&contents.clone()) {
-        println!("    CVAR: type '{}', name '{}'", &cap[1], &cap[2]);
-        contents = contents.replace(&cap[0], &format!("let mut {}: {};", &cap[2], &cap[1]));
-    }
-
-    // "dfun type name(...)": "fn name(...) -> type"
-    let dfun_re: Regex = Regex::new(r"dfun(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*\((.*)\)").unwrap();
+    // "type name(args)": "fn name(args) -> type"
+    let dfun_re: Regex = Regex::new(r"([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)+([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*\((.*)\)").unwrap(); // dfun(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*([a-zA-Z_][a-zA-Z0-9_]*)(?: |\t)*\((.*)\)
     for cap in dfun_re.captures_iter(&contents.clone()) {
         println!("    DFUN: type '{}', name '{}'", &cap[1], &cap[2]);
         let mut typen: String = cap[1].to_string();
