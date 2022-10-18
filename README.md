@@ -1,5 +1,5 @@
 # crust
-C + Rust
+C and Rust
 CRust
 
 Rust with C-like syntax
